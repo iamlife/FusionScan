@@ -16,7 +16,7 @@ from subprocess import call
 argvs=sys.argv
 
 usage = 'Usage:'
-usage = usage + '\n\tpython  Run_FusionScan.py  <reads1[,reads2]>  <output-dir>  <read-length>  <gfserver host:port>  [options]'
+usage = usage + '\n\tpython Run_FusionScan.py  <reads1[,reads2]>  <output-dir>  <read-length>  <gfserver host:port>  [options]'
 usage = usage + '\nOptions:'
 usage = usage + '\n\t --phred33                            qualities are Phred+33                                 [ default           ]'
 usage = usage + '\n\t --phred64                            qualities are Phred+64'
@@ -346,6 +346,7 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 					writer10.close()
 
 					os.system(dir_name + '/src_dir/gfClient ' +host + ' ' + port + ' -minScore=18 -minIdentity=90 -nohead . ' +tempdir + gp2 + '.fa ' + tempdir + gp2 + '.psl')
+					#print dir_name + '/src_dir/gfClient ' +host + ' ' + port + ' -minScore=18 -minIdentity=90 -nohead ' + dir_name+ '/src_dir/ ' +tempdir	+ gp2 + '.fa ' + tempdir + gp2 + '.psl'
 					time.sleep(0.1)
 					print gp2
 
@@ -415,7 +416,10 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 						elif len(qnpsl_list)> 1:
 							blat_psl_flag='true'
 
+						print blat_psl_flag
 						if blat_psl_flag=='true':
+							#goo=filtering3(blatpsl_hashtable[qName])
+							#print 'goo= '+goo
 							goo='true'
 							if (goo == 'true') and (tstring!='') and (tstring!=basicseq+ '\n') and (minst < bp2) and (bp2 < maxen) and (seedc >= 1):
 								result.append(tempstr)
@@ -448,6 +452,7 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 
 				tstring=''
 
+#	print 'finished	make_alignment_image'
 	return gp_ct_dict
 
 
@@ -563,6 +568,7 @@ if len(argvs)>=5:
 
 		
 	os.system('mkdir -p '+dir_name+'/'+project_name	+ ' &')
+	time.sleep(1)
 	time0=datetime.datetime.now()
 	timea='['+str(time0).split('.')[0]+']'
 	
@@ -592,6 +598,7 @@ if len(argvs)>=5:
 	########################################################################
 	# quality trimming
 	########################################################################
+	
 	if fq_trim=='true':
 		if len(flist)==1:
 			time0=datetime.datetime.now()
@@ -623,14 +630,19 @@ if len(argvs)>=5:
 				while ThreadsLeft:
 					time.sleep(0.1)
 				os.system('cat '+dir_name+'/'+project_name + '/'+project_name + '_1_trimmed.fq ' + dir_name+'/'+project_name + '/'+project_name + '_2_trimmed.fq > ' + dir_name+'/'+project_name + '/'+project_name	+ '_trimmed.fq')
+				time.sleep(1)
 				os.system('rm '+dir_name+'/'+project_name + '/'+project_name + '_1_trimmed.fq ' + dir_name+'/'+project_name + '/'+project_name + '_2_trimmed.fq')
+				time.sleep(1)
+				print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq'
 
 			elif thread_num==1:
 				time0=datetime.datetime.now()
 				timea='['+str(time0).split('.')[0]+']'
 				print timea + ' 1. Quality trimming'
 				os.system(dir_name+'/src_dir/fastq_quality_trimmer '+score+' -t 20 -l 40 -i ' + flist[0]+' -o ' + dir_name+'/'+project_name + '/'+project_name + '_1_trimmed.fq')
+				time.sleep(1)
 				os.system(dir_name+'/src_dir/fastq_quality_trimmer '+score+' -t 20 -l 40 -i ' + flist[1]+' -o '+dir_name+'/'+project_name + '/'+project_name + '_2_trimmed.fq')
+				time.sleep(1)
 				os.system('cat '+dir_name+'/'+project_name + '/'+project_name +	'_1_trimmed.fq ' + dir_name+'/'+project_name + '/'+project_name	+ '_2_trimmed.fq > ' + dir_name+'/'+project_name + '/'+project_name	+ '_trimmed.fq')
 				os.system('rm '+dir_name+'/'+project_name +	'/'+project_name + '_1_trimmed.fq ' + dir_name+'/'+project_name	+ '/'+project_name + '_2_trimmed.fq')
 				print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq'
@@ -638,59 +650,58 @@ if len(argvs)>=5:
 	else:
 		if len(flist)==1:
 			os.system('cp '	+ flist[0] + ' '+dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq')
+			time.sleep(1)
 			time0=datetime.datetime.now()
 			timea='['+str(time0).split('.')[0]+']'
-			print timea + ' 1. Skipped Trimmming Step. - It	is a FASTA format file.'
+			print timea + ' 1. Skipped Trimmming Step. - It is a FASTA format file.'
 			print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq'
 		if len(flist)==2:
 			os.system('cat '+flist[0]+' ' +flist[1]+ ' > '+dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq')
 			time0=datetime.datetime.now()
 			timea='['+str(time0).split('.')[0]+']'
-			print timea + ' 1. Skipped Trimmming Step. - It	is a FASTA format file.'
+			print timea + ' 1. Skipped Trimmming Step. - It is a FASTA format file.'
 			print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq'
-	time1=datetime.datetime.now()	
-	timea='['+str(time0).split('.')[0]+']'
-	print timea + ' 2. Artifacts Filtering Step'
 
 
 
-	########################################################################
-	# artifacts removing
-	########################################################################
-	if file_format=='fasta':
-		os.system('mv '+dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq ' +dir_name+'/'+project_name + '/'+project_name+'_trimmed.fa')
-		dir_name+'/src_dir/fastx_artifacts_filter -i ' +  dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq' +'	-o ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved.fq ' + score
-		os.system(dir_name+'/src_dir/fastx_artifacts_filter -i ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed.fa' +' -o ' + dir_name+'/'+project_name + '/'+project_name +	'_trimmed_artifactRemoved.fq ' + score)
-	elif file_format=='fastq':
-		os.system(dir_name+'/src_dir/fastx_artifacts_filter -i ' + dir_name+'/'+project_name +	'/'+project_name+'_trimmed.fq' +' -o ' + dir_name+'/'+project_name + '/'+project_name +	'_trimmed_artifactRemoved.fq ' + score)
-
-	print '                         '+dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved.fq'
-
+        ########################################################################
+        # getting unmapped reads for refMrna
+        ########################################################################
 	time11=datetime.datetime.now()
 	timea='['+str(time11).split('.')[0]+']'
-	print timea + ' 3. Selecting Unmapped Reads'
+	print timea + ' 2. Selecting Unmapped Reads'
 	bwf=''
 	if file_format=='fastq':
 		bwf=''
 	elif file_format=='fasta':
 		bwf='-f'
+	print ' 2-1. unmapped reads on refMrna'
+	os.system(dir_name+'/src_dir/bowtie2  '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_refMrna/refMrna	' + dir_name+'/'+project_name +	'/'+project_name+'_trimmed.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn.fq > '+dir_name+'/'+project_name + '/temp.txt')
+        print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed_refMrnaUn.fq'
 
 
-	########################################################################
-	# getting unmapped reads for refMrna
-	########################################################################
-	print '## unmapped reads on refMrna'
-	os.system(dir_name+'/src_dir/bowtie2  '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_refMrna/refMrna	' + dir_name+'/'+project_name +	'/'+project_name+'_trimmed_artifactRemoved.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved_refMrnaUn.fq > '+dir_name+'/'+project_name + '/temp.txt')
-        print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed_artifactRemoved_refMrnaUn.fq'
 
 	########################################################################
 	# getting unmapped reads for hg19
 	########################################################################
-        print '## unmapped reads on hg19'
-	os.system(dir_name+'/src_dir/bowtie2 '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_hg19/hg19 ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed_artifactRemoved_refMrnaUn.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved_refMrnaUn_hg19Un.fq > '+dir_name+'/'+project_name + '/temp.txt')
+        print ' 2-2. unmapped reads on hg19'
+	os.system(dir_name+'/src_dir/bowtie2 '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_hg19/hg19 ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed_refMrnaUn.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un.fq > '+dir_name+'/'+project_name + '/temp.txt')
 
-	print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed_artifactRemoved_refMrnaUn_hg19Un.fq'
+	print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed_refMrnaUn_hg19Un.fq'
 	os.system('rm '+dir_name+'/'+project_name + '/temp.txt')
+
+
+
+
+        ########################################################################
+        # artifacts removing
+        ########################################################################
+        time1=datetime.datetime.now()
+        timea='['+str(time0).split('.')[0]+']'
+        print timea + ' 3. Artifacts Filtering Step'
+        os.system(dir_name+'/src_dir/fastx_artifacts_filter -i ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed_refMrnaUn_hg19Un.fq' +' -o ' + dir_name+'/'+project_name + '/'+project_name +  '_trimmed_refMrnaUn_hg19Un_artifactRemoved.fq ' + score)
+        print '                         '+dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved.fq'
+
 
 
 	########################################################################
@@ -699,20 +710,18 @@ if len(argvs)>=5:
 	time11=datetime.datetime.now()
 	timea='['+str(time11).split('.')[0]+']'
 	print timea + ' 4. Selecting Unique Reads'
-	os.system(dir_name+'/src_dir/fastx_collapser '+score+' -i ' + dir_name+'/'+project_name	+ '/'+project_name + '_trimmed_artifactRemoved_refMrnaUn_hg19Un.fq -o '	+  dir_name+'/'+project_name + '/'+project_name	+ '_trimmed_artifactRemoved_refMrnaUn_hg19Un_collapsed.fa')
-	print '                         '+dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved_refMrnaUn_hg19Un_collapsed.fa'
+	os.system(dir_name+'/src_dir/fastx_collapser '+score+' -i ' + dir_name+'/'+project_name	+ '/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved.fq -o '	+  dir_name+'/'+project_name + '/'+project_name	+ '_trimmed_refMrnaUn_hg19Un_artifactRemoved_collapsed.fa')
+	print '                         '+dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved_collapsed.fa'
 	
 	
 	if (thread_num>1):
-
-		
 		########################################################################
 		# split read file per thread number
 		########################################################################
 		time11=datetime.datetime.now()
 		timea='['+str(time11).split('.')[0]+']'
 		print timea + ' 5. Split Input Fasta File by Thread Number'
-		total_n= os.popen('tail	' + dir_name+'/'+project_name+'/'+project_name + '_trimmed_artifactRemoved_refMrnaUn_hg19Un_collapsed.fa -n 2')	
+		total_n= os.popen('tail	' + dir_name+'/'+project_name+'/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved_collapsed.fa -n 2')	
 		total_num=0
 		for linex in total_n.xreadlines():
 			if linex[0]=='>':
@@ -723,7 +732,7 @@ if len(argvs)>=5:
 		os.system('mkdir -p '+dir_name+'/'+project_name+'/fa_dir')
 		os.system('mkdir -p '+dir_name+'/'+project_name+'/pslx_dir')
 		os.system('mkdir -p '+dir_name+'/'+project_name+'/log_dir')
-		os.system('python '+ dir_name+'/src_dir/split_fasta.py ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved_refMrnaUn_hg19Un_collapsed.fa ' + project_name + '	' + str(thread_num) + '	' + str(per_num)+' > ' +dir_name+'/'+project_name + '/log_dir/ddd')
+		os.system('python '+ dir_name+'/src_dir/split_fasta.py ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved_collapsed.fa ' + project_name + '	' + str(thread_num) + '	' + str(per_num)+' > ' +dir_name+'/'+project_name + '/log_dir/ddd')
 		fa_list=glob.glob(dir_name+'/'+project_name+'/fa_dir/'+project_name+'_[0-9].fa')
 		print fa_list
 		time5=datetime.datetime.now()
@@ -759,6 +768,11 @@ if len(argvs)>=5:
 			os.system(dir_name+'/src_dir/ssaha2 -solexa -skip 6 -best 5 -output pslx -save ' + dir_name+'/src_dir/ssaha2_index_hg19/hg19 ' + dir_name+'/'+project_name+'/fa_dir/'+fname + ' > ' + dir_name+'/'+project_name+'/pslx_dir/'+fname.split('.')[0] + '.pslx.txt')
 			threadexit(id)
 	
+                print '----------'
+		print fa_list
+		print thread_num
+		print '----------'
+
 		for i in range(thread_num):
 			print '                         '+fa_list[i]
 			fname =	fa_list[i].split('/')[-1]
@@ -1087,7 +1101,7 @@ if len(argvs)>=5:
 		os.system('mkdir -p '+dir_name+'/'+project_name+'/'+project_name+'/info_dir')
 		os.system('mkdir -p '+dir_name+'/'+project_name+'/'+project_name+'/alignment_dir')
 		os.system('mkdir -p '+dir_name+'/'+project_name+'/'+project_name+'/temp_dir')
-		os.system('mv ' +  dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved_refMrnaUn_hg19Un_collapsed.fa '+ dir_name+'/'+project_name + '/fa_dir/'+project_name+'.fa')
+		os.system('mv ' +  dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved_collapsed.fa '+ dir_name+'/'+project_name + '/fa_dir/'+project_name+'.fa')
 		time11=datetime.datetime.now()
 		timea='['+str(time11).split('.')[0]+']'
 		print timea + ' 5. Align to hg19'
@@ -1168,6 +1182,7 @@ if len(argvs)>=5:
 		writerg	= open(rescue_dir+'pseudo_list.txt','w')
 		writergg = open(rescue_dir+'pseudo.fa','w')
 
+		print info_loc_hash
 		
 		listofFiles=glob.glob(dir_name+'/'+project_name+'/genefa_dir/*.fa')
 		fcount=0
