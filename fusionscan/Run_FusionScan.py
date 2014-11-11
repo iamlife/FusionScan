@@ -22,7 +22,8 @@ usage = usage + '\n\t --phred33                            qualities are Phred+3
 usage = usage + '\n\t --phred64                            qualities are Phred+64'
 usage = usage + '\n\t -P/--threads                         number of threads                          <int>       [ default:  8       ]'
 usage = usage + '\n\t -ms/--min-seed                       minimum number of seed reads               <int>       [ default:  2       ]'
-usage = usage + '\n\t -md/--min-distance                   minimum distance between two genes         <int>       [ default:  50000  ]'
+usage = usage + '\n\t -md/--min-distance                   minimum distance between two genes         <int>       [ default:  50000   ]'
+usage = usage + '\n\t -rth/--read-through                  record read-through candidates also                    [ default:  off     ]'
 usage = usage + '\n\t -kfgs/--known-fusion-gene-search     searching known kinase fusion genes'
 usage = usage + '\nExample:'
 usage = usage + '\n\t python Run_FusionScan.py Test.fa Test 75 00.00.00.00:810 --phred33 -P 1 -ms 2'
@@ -37,6 +38,7 @@ falist=['fa','fasta']
 flist=[]
 trim_ok=''
 min_seed=0
+rth=''
 time0=datetime.datetime.now()
 timea='['+str(time0).split('.')[0]+']'
 print timea + ' FusionScan (v0.9)'
@@ -47,58 +49,92 @@ print timea + ' FusionScan (v0.9)'
 # rescue processing
 ########################################################################
 gp_ct_dict={}
-def do_rescue_pr(pslx_file_name, align_dir, loc_hash, lockeys):
-	t_hash={}
-	llist=[]
-	bipslx1=open(pslx_file_name,'r')
-	temp=[]
-	tkeys=[]
-	qnn=0
-	while 1:
-		line = bipslx1.readline()
-		if not line:break
-		lines4 = line.split('\t')
-		if len(lines4)>10:
-			if line[:3]=='psl':
-				mat=lines4[0].split('psl: ')[1]
-				match=int(mat)
-				tstart=int(lines4[15])
-				tend=int(lines4[16])
-				locc=lines4[15]	+ '_' +	lines4[16];
-				if locc	not	in llist:
-					llist.append(locc)
-					for ff in lockeys:
-						locs=loc_hash[ff].split('_')
-						start=int(locs[0])
-						bp=int(locs[1])
-						end=int(locs[2])
+def do_rescue_pr(rescue_dir, read_length, align_dir, loc_hash, lockeys):
+	
+        t_hash={}
+        llist=[]
+        temp=[]
+        tkeys=[]
+        qnn=0
+	
+	for ff in lockeys:
+		locs=loc_hash[ff][:-1].split('_')
+                start=int(locs[0])
+                bp=int(locs[1])
+                end=int(locs[2])
+	        samline=os.popen('samtools view '+rescue_dir+'pseudo_mapped.sorted.bam pseudo:'+str(bp-read_length)+'-'+str(bp+read_length))
+	        for line in samline.xreadlines():
+			lines=line.split('\t')
+			match=int(lines[5].split('M')[0])
+			#if match>=read_length*0.9:
+			tstart=lines[3]
+			tend=str(int(tstart)+match)
+                        qnn+=1
+                        total=str(qnn)+'   ' + str(match) + ' ' + str(start) + ' ' + str(tstart) + ' ' + str(bp) + ' ' + str(tend) + ' ' + str(end)
+			if ff not in tkeys:
+                                tkeys.append(ff)
 
-						if (start-6<tstart) and (tstart<bp) and (bp<tend) and (tend<end+6):
-							qnn+=1
-							total=str(qnn)+'   ' + str(match) + ' ' + str(start) + ' ' + str(tstart) + ' ' + str(bp) + ' ' + str(tend) + ' ' + str(end)
-							if t_hash.has_key(ff):
-								temp=t_hash[ff]
-								temp.append(total)
-								t_hash[ff]=temp
-							else:
-								if ff not in tkeys:
-									tkeys.append(ff)
-								temp=[]
-								temp.append(total)
-								t_hash[ff]=temp
-						elif (start-6<tend) and (tend<bp) and (bp<tstart) and (tstart<end+6):
-							qnn+=1
-							total=str(qnn)+'   ' + str(match) + ' ' + str(start) + ' ' + str(tstart) + ' ' + str(bp) + ' ' + str(tend) + ' ' + str(end)
-							if t_hash.has_key(ff):
-								temp=t_hash[ff]
-								temp.append(total)
-								t_hash[ff]=temp
-							else:
-								if ff not in tkeys:
-									tkeys.append(ff)
-								temp=[]
-								temp.append(total)
-								t_hash[ff]=temp
+			if t_hash.has_key(ff):
+				temp=t_hash[ff]
+				temp.append(total)
+				t_hash[ff]=temp
+			else:
+				temp=[]
+				temp.append(total)
+				t_hash[ff]=temp
+	
+        t_hash={}
+        llist=[]
+        bipslx1=open(rescue_dir+'pseudo_1.pslx.txt','r')
+        temp=[]
+        tkeys=[]
+        qnn=0
+        while 1:
+                line = bipslx1.readline()
+                if not line:break
+                lines4 = line.split('\t')
+                if len(lines4)>10:
+                        if line[:3]=='psl':
+                                mat=lines4[0].split('psl: ')[1]
+                                match=int(mat)
+                                tstart=int(lines4[15])
+                                tend=int(lines4[16])
+                                locc=lines4[15] + '_' + lines4[16];
+                                if locc not in llist:
+                                        llist.append(locc)
+                                        for ff in lockeys:
+                                                locs=loc_hash[ff].split('_')
+                                                start=int(locs[0])
+                                                bp=int(locs[1])
+                                                end=int(locs[2])
+
+                                                if (start-6<tstart) and (tstart<bp) and (bp<tend) and (tend<end+6):
+                                                        qnn+=1
+                                                        total=str(qnn)+'   ' + str(match) + ' ' + str(start) + ' ' + str(tstart) + ' ' + str(bp) + ' ' + str(tend) + ' ' + str(end)
+                                                        if t_hash.has_key(ff):
+                                                                temp=t_hash[ff]
+                                                                temp.append(total)
+                                                                t_hash[ff]=temp
+                                                        else:
+                                                                if ff not in tkeys:
+                                                                        tkeys.append(ff)
+                                                                temp=[]
+                                                                temp.append(total)
+                                                                t_hash[ff]=temp
+
+                                                elif (start-6<tend) and (tend<bp) and (bp<tstart) and (tstart<end+6):
+                                                        qnn+=1
+                                                        total=str(qnn)+'   ' + str(match) + ' ' + str(start) + ' ' + str(tstart) + ' ' + str(bp) + ' ' + str(tend) + ' ' + str(end)
+                                                        if t_hash.has_key(ff):
+                                                                temp=t_hash[ff]
+                                                                temp.append(total)
+                                                                t_hash[ff]=temp
+                                                        else:
+                                                                if ff not in tkeys:
+                                                                        tkeys.append(ff)
+                                                                temp=[]
+                                                                temp.append(total)
+                                                                t_hash[ff]=temp
 
 	fr='_1_info'
 	for t in tkeys:
@@ -106,6 +142,9 @@ def do_rescue_pr(pslx_file_name, align_dir, loc_hash, lockeys):
 		tfile=open(dir_name+'/'+project_name+'/alignment_dir/'+t+fr,'w')		
 		for r in tlist:
 			tfile.write(r+'\n')
+		
+
+	t_hash={}
 
 	print 'finished do_rescue'
 
@@ -151,7 +190,6 @@ def filtering3(psl_results):
 		if chr not in chrlist:
 			chrlist.append(chr)
 
-	print qstartendlist
 	cc=0
 	for w in range(len(qstartendlist)):
 		if repeat_flag=='true':
@@ -194,7 +232,7 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 	gp_ct_dict={}
 	tempdir=dir_name+'/'+project_name+'/temp_dir/'
 	result=[]
-	seedseq_hash={}
+	#seedseq_hash={}
 	for gp2 in gplist_:
 		gp_fasta=''
 		fff=align_dir+gp2+'_1_info'
@@ -202,6 +240,7 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 			qnlist=[]
 			loclist=[]
 			total_stli=[]
+			total_enli=[]
 			stlist=[]
 			enlist=[]
 			lll=loc_hash[gp2]
@@ -212,7 +251,6 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 			bp2=bp - ls
 			tstring=''
 			hereseq=sequ[ls:le]
-
 			basicseq=hereseq[0:bp2]+'BP'+hereseq[bp2:]
 			stli=[]
 			enli=[]
@@ -252,12 +290,15 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 					else:
 						en_temp_hash[tend]=1
 
-
-					if (st not in total_stli) and (T not in	loclist) and (match >= 45):
-						total_stli.append(st)
+					#if (st not in total_stli) and (en not in total_enli) and (T not in loclist) and (match >= 40):
+					if (T not in loclist) and (match >= 40):
+						if st not in total_stli:
+							total_stli.append(st)
+						if en not in total_enli:
+							total_enli.append(en)
 						qn_loc_hash[qn]=T
 						qnlist.append(qn)
-						stlist.append(st)
+                                                stlist.append(st)
 						enlist.append(en)
 						loclist.append(T)
 						stli.append(st)
@@ -272,7 +313,6 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 							temp.append(qn)
 							st_qn_hash[st]=temp
 
-			
 			stli.sort()
 			enli.sort()
 			total_stli.sort()
@@ -326,7 +366,7 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 									if (stbp >=20) and (bpen >= 20):
 										seedc += 1
 										seedseq	= hereseq[mst:men]
-										seedseq_hash[gp2]=seedseq
+										#seedseq_hash[gp2]=seedseq
 										gp_fasta = gp_fasta+ '>' +gp2+ '_' +qn + '\n' +	seedseq	+ '\n'
 									else:
 										if ((stbp >= 7)	and(stbp <20)) or((bpen >= 7) and (bpen < 20)):
@@ -346,9 +386,7 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 					writer10.close()
 
 					os.system(dir_name + '/src_dir/gfClient ' +host + ' ' + port + ' -minScore=18 -minIdentity=90 -nohead . ' +tempdir + gp2 + '.fa ' + tempdir + gp2 + '.psl')
-					#print dir_name + '/src_dir/gfClient ' +host + ' ' + port + ' -minScore=18 -minIdentity=90 -nohead ' + dir_name+ '/src_dir/ ' +tempdir	+ gp2 + '.fa ' + tempdir + gp2 + '.psl'
 					time.sleep(0.1)
-					print gp2
 
 					brg=open(tempdir + gp2 + '.psl','r')
 					onealign=0
@@ -416,7 +454,6 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 						elif len(qnpsl_list)> 1:
 							blat_psl_flag='true'
 
-						print blat_psl_flag
 						if blat_psl_flag=='true':
 							#goo=filtering3(blatpsl_hashtable[qName])
 							#print 'goo= '+goo
@@ -434,7 +471,8 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 								tstr = lines2[6]
 								tbp = lines2[7]
 								BPseq =	lines2[8]
-								out_file2.write(gp2+'\t'+hg + '\t' + hchr + '\t' + hstr + '\t' + hbp + '\t' + tg + '\t'	+ tchr + '\t' +	tstr + '\t' + tbp + '\t' + hg + '-' + tg + '\t' + str(seedc) + '\t' + BPseq	+ '\n')
+								rth2 = lines2[9]
+								out_file2.write(gp2+'\t'+hg + '\t' + hchr + '\t' + hstr + '\t' + hbp + '\t' + tg + '\t'	+ tchr + '\t' +	tstr + '\t' + tbp + '\t' + hg + '-' + tg + '\t' + str(seedc) + '\t' + BPseq + '\t' + rth2+ '\n')
 								out_file2.flush()
 								out_file=open(align_dir + gp2 + '.RNAalign2','w')
 								out_file.write('### '+gp2 + '(seed read count: ' + str(seedc) + ', rescued read count: ' + str(resc) + ')\n')
@@ -455,6 +493,47 @@ def make_align_image(sequ, dir_name, src_dir, temp_dir, align_dir, info_loc_hash
 #	print 'finished	make_alignment_image'
 	return gp_ct_dict
 
+########################################################################
+# filtering RepeatMasker
+########################################################################
+def do_rmsk(hrmsk_st,hrmsk_en,trmsk_st,trmsk_en,hbp,tbp):
+	htflag=1
+	hflag=1
+	tflag=1
+	for i in range(len(hrmsk_st)):
+		if (hrmsk_st[i] < hbp) and (hbp <hrmsk_en[i]):
+			hflag=0
+			break
+        for i in range(len(trmsk_st)):
+                if (trmsk_st[i] < tbp) and (tbp <trmsk_en[i]):
+                        tflag=0
+                        break
+
+	if (hflag==0) or (tflag==0):
+		htflag=0
+
+	return htflag
+
+
+########################################################################
+# read RepeatMasker
+########################################################################
+def read_rmsk(rmsk_file):
+	rmsk_list=[]
+	rmsk_st=[]
+	rmsk_en=[]
+	inf=open(rmsk_file,'r')
+	while 1:
+		line=inf.readline()
+		if not line: break
+		lines=line[:-1].split('\t')
+		rmsk_st.append(int(lines[1]))
+                rmsk_en.append(int(lines[2]))
+
+	rmsk_list.append(rmsk_st)
+	rmsk_list.append(rmsk_en)
+
+	return rmsk_list
 
 
 ########################################################################
@@ -496,11 +575,13 @@ if len(argvs)>=5:
 	m2=p2.match(line)
 	if m2:
 		score='-Q33'
+	else:
+		score='-Q33'
 
 	p2=re.compile('.*--phred64.*')
 	m2=p2.match(line)
 	if m2:
-		score=''
+		score='-Q64'
 	else:
 		score='-Q33'
 
@@ -513,26 +594,50 @@ if len(argvs)>=5:
 	m5=p5.match(line)
 	if m5:
 		thread_num=int((line.split('-P')[1].split('-')[0].strip()))
+	else:
+		thread_num=8
 
 	p4=re.compile('.*-ms.*')
 	m4=p4.match(line)
 	if m4:
 		min_seed=int((line.split('-ms')[1].split('-')[0].strip()))
+	else:
+		min_seed=2
 
 	p42=re.compile('.*--min-seed.*')
 	m42=p42.match(line)
 	if m42:
 		min_seed=int((line.split('--min-seed')[1].split('-')[0].strip()))
+	else: 
+		min_seed=2
 
 	p3=re.compile('.*-md.*')
 	m3=p3.match(line)
 	if m3:
 		min_dis=int((line.split('-md')[1].split('-')[0].strip()))
+	else: 
+		min_dis=50000
 
 	p32=re.compile('.*--min-distance.*')
 	m32=p32.match(line)
 	if m32:
 		min_dis=int((line.split('--min-distance')[1].split('-')[0].strip()))
+	else:
+		min_dis=50000
+
+        p9=re.compile('.*-rth.*')
+        m9=p9.match(line)
+        if m9:
+		rth='record'
+	else:
+		rth='pass'
+
+        p92=re.compile('.*--read-through.*')
+        m92=p92.match(line)
+        if m92:
+		rth='record'
+	else:
+		rth='pass'
 
 
 	p8=re.compile('.*-kfgs.*')
@@ -565,8 +670,8 @@ if len(argvs)>=5:
         ########################################################################
         # preparation for the blat server
         ########################################################################
-
-		
+	
+	
 	os.system('mkdir -p '+dir_name+'/'+project_name	+ ' &')
 	time.sleep(1)
 	time0=datetime.datetime.now()
@@ -604,7 +709,7 @@ if len(argvs)>=5:
 			time0=datetime.datetime.now()
 			timea='['+str(time0).split('.')[0]+']'
 			print timea + ' 1. Quality trimming'
-			os.system(dir_name+'/src_dir/fastq_quality_trimmer '+score+' -t	20 -l 40 -i ' + flist[0] +' -o ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed.fq')
+			os.system(dir_name+'/src_dir/fastq_quality_trimmer '+score+' -t 20 -l 40 -i ' + flist[0] +' -o ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed.fq')
 			print '         '+dir_name+'/'+project_name + '/'+project_name + '_trimmed.fq'
 			
 		elif len(flist)==2:
@@ -620,7 +725,7 @@ if len(argvs)>=5:
 					lock.release()
 		
 				def trimming(id,fname):
-					os.system(dir_name+'/src_dir/fastq_quality_trimmer '+score+' -t	20 -l 40 -i ' + fname+' -o ' + dir_name+'/'+project_name + '/'+project_name + '_'+str(id)+'_trimmed.fq')
+					os.system(dir_name+'/src_dir/fastq_quality_trimmer '+score+' -t 20 -l 40 -i ' + fname+' -o ' + dir_name+'/'+project_name + '/'+project_name + '_'+str(id)+'_trimmed.fq')
 					threadexit(id)
 	
 				for i in range(2):
@@ -676,7 +781,11 @@ if len(argvs)>=5:
 	elif file_format=='fasta':
 		bwf='-f'
 	print ' 2-1. unmapped reads on refMrna'
+	#os.system('bowtie2 src_dir/bowtie2_index_refMrna/refMrna ddd.fq --un ddd_fq_unmapped.fq > temp.txt &')
+	#os.system('bowtie2 src_dir/bowtie2_index_refMrna/refMrna ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn.fq > '+dir_name+'/'+project_name + '/temp.txt')
 	os.system(dir_name+'/src_dir/bowtie2  '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_refMrna/refMrna	' + dir_name+'/'+project_name +	'/'+project_name+'_trimmed.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn.fq > '+dir_name+'/'+project_name + '/temp.txt')
+	#os.system('bowtie2  '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_refMrna/refMrna        ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn.fq > '+dir_name+'/'+project_name + '/temp.txt')
+	print dir_name+'/src_dir/bowtie2  '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_refMrna/refMrna ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn.fq > '+dir_name+'/'+project_name + '/temp.txt'
         print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed_refMrnaUn.fq'
 
 
@@ -686,7 +795,7 @@ if len(argvs)>=5:
 	########################################################################
         print ' 2-2. unmapped reads on hg19'
 	os.system(dir_name+'/src_dir/bowtie2 '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_hg19/hg19 ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed_refMrnaUn.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un.fq > '+dir_name+'/'+project_name + '/temp.txt')
-
+	print dir_name+'/src_dir/bowtie2 '+ bwf +' -p ' + str(thread_num) + ' ' + dir_name+'/src_dir/bowtie2_index_hg19/hg19 ' + dir_name+'/'+project_name + '/'+project_name+'_trimmed_refMrnaUn.fq --un ' + dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un.fq > '+dir_name+'/'+project_name + '/temp.txt'
 	print '                         '+dir_name+'/'+project_name + '/'+project_name+'_trimmed_refMrnaUn_hg19Un.fq'
 	os.system('rm '+dir_name+'/'+project_name + '/temp.txt')
 
@@ -714,13 +823,71 @@ if len(argvs)>=5:
 	print '                         '+dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved_collapsed.fa'
 	
 	
+        ########################################################################
+        # preparing rmsk files
+        ########################################################################
+        time11=datetime.datetime.now()
+        timea='['+str(time11).split('.')[0]+']'
+        print timea + ' 5. Read RMSK files'
+        rmsk_chr1=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr1.txt')
+        rmsk_chr2=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr2.txt')
+        rmsk_chr3=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr3.txt')
+        rmsk_chr4=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr4.txt')
+        rmsk_chr5=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr5.txt')
+        rmsk_chr6=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr6.txt')
+        rmsk_chr7=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr7.txt')
+        rmsk_chr8=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr8.txt')
+        rmsk_chr9=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr9.txt')
+        rmsk_chr10=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr10.txt')
+        rmsk_chr11=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr11.txt')
+        rmsk_chr12=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr12.txt')
+        rmsk_chr13=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr13.txt')
+        rmsk_chr14=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr14.txt')
+        rmsk_chr15=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr15.txt')
+        rmsk_chr16=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr16.txt')
+        rmsk_chr17=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr17.txt')
+        rmsk_chr18=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr18.txt')
+        rmsk_chr19=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr19.txt')
+        rmsk_chr20=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr20.txt')
+        rmsk_chr21=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr21.txt')
+        rmsk_chr22=read_rmsk(dir_name+'/rmsk_dir/rmsk_chr22.txt')
+        rmsk_chrX=read_rmsk(dir_name+'/rmsk_dir/rmsk_chrX.txt')
+        rmsk_chrY=read_rmsk(dir_name+'/rmsk_dir/rmsk_chrY.txt')
+	chr_dic={}
+	chr_dic['chr1']=rmsk_chr1
+        chr_dic['chr2']=rmsk_chr2
+        chr_dic['chr3']=rmsk_chr3
+        chr_dic['chr4']=rmsk_chr4
+        chr_dic['chr5']=rmsk_chr5
+        chr_dic['chr6']=rmsk_chr6
+        chr_dic['chr7']=rmsk_chr7
+        chr_dic['chr8']=rmsk_chr8
+        chr_dic['chr9']=rmsk_chr9
+        chr_dic['chr10']=rmsk_chr10
+        chr_dic['chr11']=rmsk_chr11
+        chr_dic['chr12']=rmsk_chr12
+        chr_dic['chr13']=rmsk_chr13
+        chr_dic['chr14']=rmsk_chr14
+        chr_dic['chr15']=rmsk_chr15
+        chr_dic['chr16']=rmsk_chr16
+        chr_dic['chr17']=rmsk_chr17
+        chr_dic['chr18']=rmsk_chr18
+        chr_dic['chr19']=rmsk_chr19
+        chr_dic['chr20']=rmsk_chr20
+        chr_dic['chr21']=rmsk_chr21
+        chr_dic['chr22']=rmsk_chr22
+        chr_dic['chrX']=rmsk_chrX
+        chr_dic['chrY']=rmsk_chrY
+	
 	if (thread_num>1):
+	
+			
 		########################################################################
 		# split read file per thread number
 		########################################################################
 		time11=datetime.datetime.now()
 		timea='['+str(time11).split('.')[0]+']'
-		print timea + ' 5. Split Input Fasta File by Thread Number'
+		print timea + ' 6. Split Input Fasta File by Thread Number'
 		total_n= os.popen('tail	' + dir_name+'/'+project_name+'/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved_collapsed.fa -n 2')	
 		total_num=0
 		for linex in total_n.xreadlines():
@@ -746,7 +913,7 @@ if len(argvs)>=5:
 		
 		time11=datetime.datetime.now()
 		timea='['+str(time11).split('.')[0]+']'
-		print timea + ' 6. Align to hg19'
+		print timea + ' 7. Align to hg19'
 		ThreadsLeft= thread_num
 		lock = thread.allocate_lock()
 	
@@ -789,20 +956,21 @@ if len(argvs)>=5:
 		os.system('mkdir -p ' +	dir_name+'/'+project_name+'/alignment_dir')
 		os.system('mkdir -p ' +	dir_name+'/'+project_name+'/temp_dir')
 		
-
+		
 		pslx_flist=glob.glob(dir_name+'/'+project_name+'/pslx_dir/'+project_name+'_*.pslx.txt')
 		rescue_dir=dir_name+'/'+project_name+'/rescue_dir/'
 		align_dir=dir_name+'/'+project_name+'/alignment_dir/'
 		temp_dir=dir_name+'/'+project_name+'/temp_dir/'
 		src_dir=dir_name+'/src_dir/'
 
+		
 		########################################################################
 		# run main algorithm
 		########################################################################		
 		
 		time11=datetime.datetime.now()
 		timea='['+str(time11).split('.')[0]+']'
-		print timea + ' 7. run FusionRNAscan program * thread_num'
+		print timea + ' 8. run FusionRNAscan program * thread_num'
 		ThreadsLeft = thread_num
 		lock = thread.allocate_lock()
 
@@ -818,9 +986,8 @@ if len(argvs)>=5:
 		def run_FusionRNAscan(id,fname):
 			fname2=fname.split('_')[1]
 			fnum=fname2.split('.')[0]
-			print '                         java -jar ' + dir_name + '/src_dir/FusionScan.jar ' +dir_name + ' ' + fname + ' ' +  dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved.fq' + ' ' + project_name	+ ' ' +project_name + '_'+str(id)+' ' + str(read_length) + ' ' + host +	' ' + port + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name + '_'+str(id)
-			os.system('java -jar ' + dir_name + '/src_dir/FusionScan.jar ' +dir_name + ' ' + fname + ' ' +  dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved.fq' + ' ' + project_name  + ' ' +project_name + '_'+str(id)+' ' + str(read_length) + ' ' + host + ' ' + port + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name + '_'+str(id))
-			#os.system('java -cp ' + dir_name + ' FusionScan.Main ' +dir_name + ' ' + fname +' '  +  dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved.fq' + ' ' + project_name + ' ' +project_name + '_'+str(id)+' ' + str(read_length) + ' '+ host + ' ' + port  + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name +'_'+str(id))
+			print '                         java -jar ' + dir_name + '/src_dir/FusionScan.jar ' +dir_name + ' ' + fname + ' ' + project_name + ' ' +project_name + '_'+str(id)+' ' + str(read_length) + ' ' + rth + ' ' + host +	' ' + port + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name + '_'+str(id) + ' -Xmx4G'
+			os.system('java -jar ' + dir_name + '/src_dir/FusionScan.jar ' +dir_name + ' ' + fname +' ' + project_name + ' ' +project_name + '_'+str(id)+' ' + str(read_length) + ' ' + rth  + ' '+ host + ' ' + port  + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name +'_'+str(id) + ' -Xmx4G')
 			threadexit2(id)
 
 		for f in range(thread_num):
@@ -829,6 +996,7 @@ if len(argvs)>=5:
 
 		while ThreadsLeft:
 			time.sleep(0.1)
+		
 		
 		rescue_dic={}
 		cout=open(rescue_dir+'rescue_all.fa','w')
@@ -861,10 +1029,16 @@ if len(argvs)>=5:
 			cin.close()
 		cout.close()
 
+
+		
+
 		# rescue step to here.
 		gp_chr_hash={}
 		info_loc_hash={}
 	
+                time11=datetime.datetime.now()
+                timea='['+str(time11).split('.')[0]+']'
+                print timea + ' 9. making read alignment & RMSK'
 		for f in range(thread_num):
 			os.system('cp ' +dir_name+'/'+project_name + '/'+project_name + '_'+str(f+1)+'/genefa_dir/* '+ dir_name+'/'+project_name+'/genefa_dir/')
 			infoi=open(dir_name+'/'+project_name + '/'+project_name	+'_'+ str(f+1)+'/info_dir/info_'+project_name+'.txt','r')
@@ -882,17 +1056,28 @@ if len(argvs)>=5:
 				tstr = lines2[7]
 				tbp= lines2[8]
 				BPseq =	lines2[9]
-				info_loc_hash[gp]=hg + "\t"+ hchr + "\t" +hstr + "\t"+ hbp +"\t" + tg + "\t" + tchr+ "\t" + tstr +"\t" + tbp + "\t" +BPseq
+				rth2 = lines2[10]
+				hrmsk=chr_dic[hchr]
+				hrmsk_st=hrmsk[0]
+                                hrmsk_en=hrmsk[1]
+                                trmsk=chr_dic[tchr]
+                                trmsk_st=trmsk[0]
+                                trmsk_en=trmsk[1]
 
+				if do_rmsk(hrmsk_st,hrmsk_en,trmsk_st,trmsk_en,hbp,tbp)==1:
+					info_loc_hash[gp]=hg + "\t"+ hchr + "\t" +hstr + "\t"+ hbp +"\t" + tg + "\t" + tchr+ "\t" + tstr +"\t" + tbp + "\t" +BPseq+"\t"+rth2
+
+
+		
 		sequ = ''
 		tt = ''
 		tlen = 0
-		writerg	= open(rescue_dir+'pseudo_list.txt','w')
+		writerg = open(rescue_dir+'pseudo_list.txt','w')
 		writergg = open(rescue_dir+'pseudo.fa','w')
 
-		
 		listofFiles=glob.glob(dir_name+'/'+project_name+'/genefa_dir/*.fa')
 		fcount=0
+
 		for h in range(len(listofFiles)):
 
 			ff=listofFiles[h]
@@ -902,7 +1087,7 @@ if len(argvs)>=5:
 			fcount+=1
 			ddd=ff[len(ff)-2:]
 
-			if ddd=="fa" and len(gps3)==3:
+			if ddd=="fa" and len(gps3)==3 and info_loc_hash.has_key(gps[0]):
 				gp=gps[0]
 				ingf=open(ff,'r')
 				cc=0
@@ -930,15 +1115,52 @@ if len(argvs)>=5:
 		writergg.write('>pseudo\n' + sequ+'\n')
 		writergg.flush()
 		writergg.close()
-		
-		os.system(src_dir+'ssaha2Build -solexa -save ' + rescue_dir+ 'pseudo '+ rescue_dir+'pseudo.fa')
-		print '                         '+src_dir+'ssaha2Build -solexa -save ' + rescue_dir + 'pseudo '+ rescue_dir+'pseudo.fa'
+
+                os.system(src_dir+'ssaha2Build -solexa -save ' + rescue_dir+ 'pseudo '+ rescue_dir+'pseudo.fa')
+                print '                         '+src_dir+'ssaha2Build -solexa -save ' + rescue_dir + 'pseudo '+ rescue_dir+'pseudo.fa'
+                time.sleep(0.1)
+                os.system(src_dir+'ssaha2 -solexa -best 5 -output pslx -save ' +rescue_dir+'pseudo ' + rescue_dir+'rescue_all.fa > ' + rescue_dir+'pseudo_1.pslx.txt')
+                print '                         '+src_dir+'ssaha2 -solexa -best 5 -output pslx -save ' +rescue_dir+'pseudo ' + rescue_dir+'rescue_all.fa > ' + rescue_dir+'pseudo_1.pslx.txt'
+                time.sleep(0.1)
+
+		"""
+		# bowtie2 indexing
+		os.system(src_dir+'bowtie2-build ' + rescue_dir+ 'pseudo.fa ' + rescue_dir+ 'pseudo')
+		print '                         '+src_dir+'bowtie2-build ' + rescue_dir+ 'pseudo.fa ' + rescue_dir+ 'pseudo'
 		time.sleep(0.1)
-		os.system(src_dir+'ssaha2 -solexa -best	5 -output pslx -save ' +rescue_dir+'pseudo ' + rescue_dir+'rescue_all.fa > ' + rescue_dir+'pseudo_1.pslx.txt')
-		print '                         '+src_dir+'ssaha2 -solexa -best 5 -output pslx -save ' +rescue_dir+'pseudo ' + rescue_dir+'rescue_all.fa > ' + rescue_dir+'pseudo_1.pslx.txt'
+
+		# bowtie2 mapping
+		if fq_trim=='true':
+			os.system(src_dir+'bowtie2 -p '+str(thread_num)+' '+rescue_dir+'pseudo '+ dir_name+'/'+project_name+'/'+project_name+'_trimmed.fq -S '+rescue_dir+'pseudo.sam')
+			print src_dir+'bowtie2 -p '+str(thread_num)+' '+rescue_dir+'pseudo '+ dir_name+'/'+project_name+'/'+project_name+'_trimmed.fq -S '+rescue_dir+'pseudo.sam'
+		else:
+			os.system(dir_name+'/'+project_name+'/'+project_name+'_trimmed.fq ' + dir_name+'/'+project_name+'/'+project_name+'_trimmed.fa')
+                        os.system(src_dir+'bowtie2 -p '+str(thread_num)+' '+rescue_dir+'pseudo -f '+ dir_name+'/'+project_name+'/'+project_name+'_trimmed.fa -S '+rescue_dir+'pseudo.sam')
+                        print src_dir+'bowtie2 -p '+str(thread_num)+' '+rescue_dir+'pseudo -f '+ dir_name+'/'+project_name+'/'+project_name+'_trimmed.fa -S '+rescue_dir+'pseudo.sam'
+
 		time.sleep(0.1)
-		
-		
+
+		# sam to bam
+		os.system(src_dir+'samtools view -bS '+rescue_dir+'pseudo.sam > '+rescue_dir+'pseudo.bam')
+		print src_dir+'samtools view -bS '+rescue_dir+'pseudo.sam > '+rescue_dir+'pseudo.bam'
+		time.sleep(0.1)
+
+		# extract mapped bam from total sam
+		os.system(src_dir+'samtools view -bS -F 4 '+rescue_dir+'pseudo.sam > '+rescue_dir+'pseudo_mapped.bam')
+		print src_dir+'samtools view -bS -F 4 '+rescue_dir+'pseudo.sam > '+rescue_dir+'pseudo_mapped.bam'
+		time.sleep(0.1)
+
+		# sorting
+		os.system(src_dir+'samtools sort '+rescue_dir+'pseudo_mapped.bam '+rescue_dir+'pseudo_mapped.sorted')
+		print src_dir+'samtools sort '+rescue_dir+'pseudo_mapped.bam '+rescue_dir+'pseudo_mapped.sorted'
+		time.sleep(0.1)
+
+		# indexing
+		os.system(src_dir+'samtools index '+rescue_dir+'pseudo_mapped.sorted.bam')
+		print src_dir+'samtools index '+rescue_dir+'pseudo_mapped.sorted.bam'
+		time.sleep(0.1)
+		"""
+
 		loc_hash={}
 		gplist_=[]
 		biplist=open(rescue_dir+'pseudo_list.txt','r')
@@ -955,11 +1177,12 @@ if len(argvs)>=5:
 		lockeys=loc_hash.keys()
 
 		list_file_name = rescue_dir+ 'pseudo_list.txt'
-		pslx_file_name = rescue_dir+ 'pseudo_1.pslx.txt'
 		out_file2 =open(dir_name+'/'+project_name +'/'+project_name + '_FusionScan_candidate_result.txt','w')
 	
-		do_rescue_pr(pslx_file_name, align_dir,	loc_hash, lockeys)
+		print '---------------- do_rescue_pr'
+		do_rescue_pr(rescue_dir, read_length, align_dir, loc_hash, lockeys)
 		
+		print '---------------- gp_ct_dict'
 		gp_ct_dict=make_align_image(sequ, dir_name,src_dir, temp_dir, align_dir, info_loc_hash, project_name, host, port, out_file2, loc_hash,	gplist_, 60)
 		out_file2.close()
 		
@@ -972,7 +1195,6 @@ if len(argvs)>=5:
 		for f in range(len(flist)):
 			fns= flist[f].split('/')
 			fn=fns[len(fns)-1]
-			#fn1 = fn.split('/')[1]
 			fn2= fn.split('_FusionScan')[0]
 			ifile =	open(flist[f],'r')
 			while 1:
@@ -983,11 +1205,10 @@ if len(argvs)>=5:
 				gp = lines[0]#+'_'+lines[4]
 				if (lines[0]!='Hgene'):
 					ct = int(lines[10])
-					#os.system('mv '+dir_name +'/'+project_name+'/'+project_name+'_*/alignment_dir/' +gp + '*.RNAalign ' + dir_name+'/'+project_name+'/alignment_dir/')
 					if gp_ct_dict.has_key(gp):
 						ctt= gp_ct_dict[gp]
 						lls=linei.split('\t')
-						ttt=lls[0]+'\t'+lls[1]+'\t'+lls[2]+'\t'+lls[3]+'\t'+lls[4]+'\t'+lls[5]+'\t'+lls[6]+'\t'+lls[7]+'\t'+lls[8]+'\t'+lls[9]+'\t'+str(ctt)+'\t'+lls[11]
+						ttt=lls[0]+'\t'+lls[1]+'\t'+lls[2]+'\t'+lls[3]+'\t'+lls[4]+'\t'+lls[5]+'\t'+lls[6]+'\t'+lls[7]+'\t'+lls[8]+'\t'+lls[9]+'\t'+str(ctt)+'\t'+lls[11]+'\t'+lls[12]
 						t_dict[gp] = ttt
 					else:
 						t_dict[gp] = linei
@@ -1046,43 +1267,51 @@ if len(argvs)>=5:
 						seed_criteria_c+=1
 						ofile5.write(liner)
 		total=0
+		morethan2=0
+		readthrough=0
 		filtered=0
 		kalbok=0
 		notsimilar=0
-		notrepeat=0
+		notrepeat=len(info_loc_hash)
+
 		ifile3 = open(dir_name+'/'+project_name	+ '/log_dir/log_count_'+project_name,'r')
 		while 1:
 			lined=ifile3.readline()
 			if not lined: break
 			lines=lined.split('\t')
 			total+=int(lines[0])
-			filtered+=int(lines[1])
-			kalbok+=int(lines[2])
-			notsimilar+=int(lines[3])
-			notrepeat+=int(lines[4])
+			morethan2+=int(lines[1])
+			readthrough+=int(lines[2])
+			filtered+=int(lines[3])
+			kalbok+=int(lines[4])
+			notsimilar+=int(lines[5])
 	
 		ofile4 = open(dir_name+'/'+project_name + '/count_per_each_step_'+project_name,'w')
 		ofile4.write("")
-		ofile4.write(" # total reads : "+str(total)+"\n")
-		ofile4.write("--> # filtered reads by alignment information : "+str(filtered)+"\n")
-		ofile4.write("    --> # fusion genes having read aligned exon boundary totally : "+str(kalbok)+"\n")
-		ofile4.write("        --> # fusion genes having no sequence homology : "+str(notsimilar)+"\n")
-		ofile4.write("            --> # fusion genes not aligned repeat regions	: "+str(notrepeat)+"\n")
-		ofile4.write("                --> # fusion genes having at least 1 seed : "+ str(candi_num)+"\n")
-		ofile4.write("                   --> # fusion genes having at least "+str(min_seed)+" seeds : "+ str(seed_criteria_c)+"\n")
+		ofile4.write(" # total reads mapped by SSAHA2 : "+str(total)+"\n")
+                ofile4.write("--> # reads (2<= # alignments <=11) : "+str(morethan2)+"\n")
+		ofile4.write("    --> # left reads by filtering read-through & blacklist : "+str(readthrough)+"\n")
+		ofile4.write("        --> # left reads by alignment information : "+str(filtered)+"\n")
+		ofile4.write("            --> # fusion genes having read aligned exon boundary totally : "+str(kalbok)+"\n")
+		ofile4.write("                --> # fusion genes having no sequence homology : "+str(notsimilar)+"\n")
+		ofile4.write("                    --> # fusion genes not aligned repeat regions	: "+str(notrepeat)+"\n")
+		ofile4.write("                        --> # fusion genes having at least 1 seed : "+ str(candi_num)+"\n")
+		ofile4.write("                            --> # fusion genes having at least "+str(min_seed)+" seeds : "+ str(seed_criteria_c)+"\n")
 		print '-----------------------------------------------------------------------------------------------------'
 		print "#<FusionScan Result for "+project_name+">"
 		print "## total reads : "+str(total)
-		print "#--> # filtered reads by alignment information : "+str(filtered)
-		print "#    --> # fusion genes having read aligned exon boundary totally : "+str(kalbok)
-		print "#        --> # fusion genes having no sequence homology : "+str(notsimilar)
-		print "#            --> # fusion genes not aligned repeat regions : "+str(notrepeat)
-		print "#                --> # fusion genes having at least 1 seed : "+ str(candi_num)
-		print "#                   --> # fusion genes having at least "+str(min_seed)+" seeds : "+ str(seed_criteria_c)
+                print "#--> # reads (2<= # alignments <=11) : "+str(morethan2)
+		print "#    --> # left reads by filtering read-through & blacklist : "+str(readthrough)
+		print "#        --> # left reads by alignment information : "+str(filtered)
+		print "#            --> # fusion genes having read aligned exon boundary totally : "+str(kalbok)
+		print "#                --> # fusion genes having no sequence homology : "+str(notsimilar)
+		print "#                    --> # fusion genes not aligned repeat regions : "+str(notrepeat)
+		print "#                        --> # fusion genes having at least 1 seed : "+ str(candi_num)
+		print "#                            --> # fusion genes having at least "+str(min_seed)+" seeds : "+ str(seed_criteria_c)
 		time11=datetime.datetime.now()
 		timea='['+str(time11).split('.')[0]+']'
 		print timea + '                             '+dir_name+'/'+project_name + '/count_per_each_step_'+project_name
-
+		
 	elif (thread_num==1):
 		print '==================================================================================================='
 		
@@ -1102,19 +1331,19 @@ if len(argvs)>=5:
 		os.system('mkdir -p '+dir_name+'/'+project_name+'/'+project_name+'/alignment_dir')
 		os.system('mkdir -p '+dir_name+'/'+project_name+'/'+project_name+'/temp_dir')
 		os.system('mv ' +  dir_name+'/'+project_name + '/'+project_name + '_trimmed_refMrnaUn_hg19Un_artifactRemoved_collapsed.fa '+ dir_name+'/'+project_name + '/fa_dir/'+project_name+'.fa')
+		
 		time11=datetime.datetime.now()
 		timea='['+str(time11).split('.')[0]+']'
-		print timea + ' 5. Align to hg19'
+		print timea + ' 6. Align to hg19'
 		os.system(dir_name+'/src_dir/ssaha2 -solexa -skip 6 -cmatch 20 -best 5 -output pslx -save ' +dir_name+'/src_dir/ssaha2_index_hg19/hg19 ' + dir_name+'/'+project_name + '/fa_dir/'+project_name+'.fa > ' + dir_name+'/'+project_name + '/pslx_dir/'+project_name+'.pslx.txt')
 		print '                         '+dir_name+'/'+project_name + '/pslx_dir/'+project_name+'.pslx.txt'
 
 		time11=datetime.datetime.now()
 		timea='['+str(time11).split('.')[0]+']'
-		print timea + ' 6. Run FusionRNAscan program'
+		print timea + ' 7. Run FusionRNAscan program'
 		ofile3 = open(dir_name+'/'+project_name	+ '/log_dir/log_count_'+project_name,'w')
-		print '                         java -jar ' + dir_name + '/src_dir/FusionScan.jar '+ dir_name + ' '+ dir_name+'/'+project_name + '/pslx_dir/'+project_name+'.pslx.txt ' +dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved.fq' + ' ' +project_name + ' ' +project_name + ' ' + str(read_length) + ' ' + host + ' ' + port + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name
-		os.system('java -jar ' + dir_name + '/src_dir/FusionScan.jar '+ dir_name + ' '+ dir_name+'/'+project_name + '/pslx_dir/'+project_name+'.pslx.txt ' +dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved.fq' + ' ' +project_name + ' ' +project_name + ' ' + str(read_length) + ' ' + host + ' ' + port + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name)
-		#os.system('java -cp ' + dir_name + ' FusionScan.Main '+ dir_name + ' '+ dir_name+'/'+project_name + '/pslx_dir/'+project_name+'.pslx.txt ' +dir_name+'/'+project_name + '/'+project_name + '_trimmed_artifactRemoved.fq' + ' ' +project_name + ' ' +project_name + ' ' + str(read_length) + ' ' + host + ' ' + port + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name)
+		print '                         java -jar ' + dir_name + '/src_dir/FusionScan.jar '+ dir_name + ' '+ dir_name+'/'+project_name + '/pslx_dir/'+project_name+'.pslx.txt ' + project_name + ' ' +project_name + ' ' + str(read_length) + ' ' + rth  + ' ' + host + ' ' + port + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name + ' -Xmx4G'
+		os.system('java -jar ' + dir_name + '/src_dir/FusionScan.jar '+ dir_name + ' '+ dir_name+'/'+project_name + '/pslx_dir/'+project_name+'.pslx.txt ' +project_name + ' ' +project_name + ' ' + str(read_length) + ' ' + rth  + ' ' + host + ' ' + port + ' > ' +dir_name+'/'+project_name + '/log_dir/log_'+project_name + ' -Xmx4G')
 		time.sleep(0.1)
 		os.system('mkdir -p ' +	dir_name+'/'+project_name+'/alignment_dir')
 		
@@ -1157,6 +1386,9 @@ if len(argvs)>=5:
 		# rescue step to here.
 		gp_chr_hash={}
 		info_loc_hash={}
+                time11=datetime.datetime.now()
+                timea='['+str(time11).split('.')[0]+']'
+                print timea + ' 8. making read alignment & RMSK'
 	
 		os.system('cp '	+dir_name+'/'+project_name + '/'+project_name +'/genefa_dir/* '+ dir_name+'/'+project_name+'/genefa_dir/')
 		infoi=open(dir_name+'/'+project_name + '/'+project_name+'/info_dir/info_'+project_name+'.txt','r')
@@ -1174,15 +1406,24 @@ if len(argvs)>=5:
 			tstr = lines2[7]
 			tbp= lines2[8]
 			BPseq =	lines2[9]
-			info_loc_hash[gp]=hg + "\t"+ hchr + "\t" +hstr + "\t"+ hbp +"\t" + tg + "\t" + tchr+ "\t" + tstr +"\t" + tbp + "\t" +BPseq
+                        rth2 = lines2[10]
+                        hrmsk=chr_dic[hchr]
+			hrmsk_st=hrmsk[0]
+			hrmsk_en=hrmsk[1]
+			trmsk=chr_dic[tchr]
+			trmsk_st=trmsk[0]
+			trmsk_en=trmsk[1]
 
+			if do_rmsk(hrmsk_st,hrmsk_en,trmsk_st,trmsk_en,hbp,tbp)==1:
+                                info_loc_hash[gp]=hg + "\t"+ hchr + "\t" +hstr + "\t"+ hbp +"\t" + tg + "\t" + tchr+ "\t" + tstr +"\t" + tbp + "\t" +BPseq+"\t"+rth2
+
+                print '  count of rmsk filtered fusion cases :'+str(len(info_loc_hash))
 		sequ = ''
 		tt = ''
 		tlen = 0
 		writerg	= open(rescue_dir+'pseudo_list.txt','w')
 		writergg = open(rescue_dir+'pseudo.fa','w')
 
-		print info_loc_hash
 		
 		listofFiles=glob.glob(dir_name+'/'+project_name+'/genefa_dir/*.fa')
 		fcount=0
@@ -1248,10 +1489,10 @@ if len(argvs)>=5:
 		lockeys=loc_hash.keys()
 
 		list_file_name = rescue_dir+ 'pseudo_list.txt'
-		pslx_file_name = rescue_dir+ 'pseudo_1.pslx.txt'
+		#pslx_file_name = rescue_dir+ 'pseudo_1.pslx.txt'
 		out_file2 =open(dir_name+'/'+project_name +'/'+project_name + '_FusionScan_candidate_result.txt','w')
 	
-		do_rescue_pr(pslx_file_name, align_dir, loc_hash, lockeys)
+		do_rescue_pr(rescue_dir, read_length, align_dir, loc_hash, lockeys)
 		
 		gp_ct_dict=make_align_image(sequ, dir_name,src_dir, temp_dir, align_dir, info_loc_hash, project_name, host, port, out_file2, loc_hash, gplist_, 60)
 		out_file2.close()
@@ -1338,43 +1579,52 @@ if len(argvs)>=5:
 					if seedrc>=min_seed:
 						seed_criteria_c+=1
 						ofile5.write(liner)
-		total=0
-		filtered=0
-		kalbok=0
-		notsimilar=0
-		notrepeat=0
-		ifile3 = open(dir_name+'/'+project_name + '/log_dir/log_count_'+project_name,'r')
-		while 1:
-			lined=ifile3.readline()
-			if not lined: break
-			lines=lined.split('\t')
-			total+=int(lines[0])
-			filtered+=int(lines[1])
-			kalbok+=int(lines[2])
-			notsimilar+=int(lines[3])
-			notrepeat+=int(lines[4])
-	
-		ofile4 = open(dir_name+'/'+project_name	+ '/count_per_each_step_'+project_name,'w')
-		ofile4.write("")
-		ofile4.write(" # total reads : "+str(total)+"\n")
-		ofile4.write("--> # filtered reads by alignment information : "+str(filtered)+"\n")
-		ofile4.write("    --> # fusion genes having read aligned exon boundary totally : "+str(kalbok)+"\n")
-		ofile4.write("        --> # fusion genes having no sequence homology : "+str(notsimilar)+"\n")
-		ofile4.write("            --> # fusion genes not aligned repeat regions : "+str(notrepeat)+"\n")
-		ofile4.write("                --> # fusion genes having at least 1 seed : "+ str(candi_num)+"\n")
-		ofile4.write("                   --> # fusion genes having at least "+str(min_seed)+" seeds : "+ str(seed_criteria_c)+"\n")
-		print '---------------------------------------------------------------------------------------------------------------------'
-		print "#<FusionScan Result for "+project_name+">"
-		print "## total reads : "+str(total)
-		print "#--> # filtered reads by alignment information : "+str(filtered)
-		print "#    --> # fusion genes having read aligned exon boundary totally : "+str(kalbok)
-		print "#        --> # fusion genes having no sequence homology : "+str(notsimilar)
-		print "#            --> # fusion genes not aligned repeat regions : "+str(notrepeat)
-		print "#                --> # fusion genes having at least 1 seed : "+ str(candi_num)
-		print "#                   --> # fusion genes having at least "+str(min_seed)+" seeds : "+ str(seed_criteria_c)
-		time11=datetime.datetime.now()
-		timea='['+str(time11).split('.')[0]+']'
-		print timea + '                             '+dir_name+'/'+project_name + '/count_per_each_step_'+project_name
+
+                total=0
+                morethan2=0
+                readthrough=0
+                filtered=0
+                kalbok=0
+                notsimilar=0
+                notrepeat=len(info_loc_hash)
+                ifile3 = open(dir_name+'/'+project_name + '/log_dir/log_count_'+project_name,'r')
+                while 1:
+                        lined=ifile3.readline()
+                        if not lined: break
+                        lines=lined.split('\t')
+                        total+=int(lines[0])
+                        morethan2+=int(lines[1])
+                        readthrough+=int(lines[2])
+                        filtered+=int(lines[3])
+                        kalbok+=int(lines[4])
+                        notsimilar+=int(lines[5])
+
+                ofile4 = open(dir_name+'/'+project_name + '/count_per_each_step_'+project_name,'w')
+                ofile4.write("")
+                ofile4.write(" # total reads mapped by SSAHA2 : "+str(total)+"\n")
+                ofile4.write("--> # reads (2<= # alignments <=11) : "+str(morethan2)+"\n")
+                ofile4.write("    --> # left reads by filtering read-through & blacklist : "+str(readthrough)+"\n")
+                ofile4.write("        --> # left reads by alignment information : "+str(filtered)+"\n")
+                ofile4.write("            --> # fusion genes having read aligned exon boundary totally : "+str(kalbok)+"\n")
+                ofile4.write("                --> # fusion genes having no sequence homology : "+str(notsimilar)+"\n")
+                ofile4.write("                    --> # fusion genes not aligned repeat regions : "+str(notrepeat)+"\n")
+                ofile4.write("                        --> # fusion genes having at least 1 seed : "+ str(candi_num)+"\n")
+                ofile4.write("                            --> # fusion genes having at least "+str(min_seed)+" seeds : "+ str(seed_criteria_c)+"\n")
+                print '-----------------------------------------------------------------------------------------------------'
+                print "#<FusionScan Result for "+project_name+">"
+                print "## total reads : "+str(total)
+                print "#--> # reads (2<= # alignments <=11) : "+str(morethan2)
+                print "#    --> # left reads by filtering read-through & blacklist : "+str(readthrough)
+                print "#        --> # left reads by alignment information : "+str(filtered)
+                print "#            --> # fusion genes having read aligned exon boundary totally : "+str(kalbok)
+                print "#                --> # fusion genes having no sequence homology : "+str(notsimilar)
+                print "#                    --> # fusion genes not aligned repeat regions : "+str(notrepeat)
+                print "#                        --> # fusion genes having at least 1 seed : "+ str(candi_num)
+                print "#                            --> # fusion genes having at least "+str(min_seed)+" seeds : "+ str(seed_criteria_c)
+                time11=datetime.datetime.now()
+                timea='['+str(time11).split('.')[0]+']'
+                print timea + '                             '+dir_name+'/'+project_name + '/count_per_each_step_'+project_name
+
 
 	if known_fusion_search=='go':
 		

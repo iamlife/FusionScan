@@ -1,7 +1,440 @@
-FusionScan is a fast and accurate prediction tool for fusion genes from RNA-seq data. 
 
-FusionScan has better precision and recall than other tools.
+======================================================================================================
+Name		: FusionScan
+Version		: 1.0
+Last Updated	: 2014-09-05
+Description	: FusionScan is a fast and accurate prediction tool for fusion genes from RNA-seq data. 
+		  FusionScan has better precision and recall than other tools.
+		  Please see http://biome.ewha.ac.kr/fusionscan/fusionscan.html for FusionScan manual and documentation.
+======================================================================================================
 
-Please see http://biome.ewha.ac.kr/fusionscan/fusionscan.html for FusionScan manual and documentation.
+DOWNLOAD
+	GETTING THE SOFTWARE  AND INDEX FILES
+	: You can get the recent version of fusionscan from https://github.com/iamlife/FusionScan or under link.
+
+	FILE NAME			DESCRIPTION					RECOMENDED LOCATION
+	fusionscan			fusionscan src files				your wanted location
+											tar xvfz fusionscan.tar.gz
+											cd fusionscan/
+	hg19.2bit.gz			hg19.2bit file to run gfServer(blat)		/fusionscan/src_dir/
+	nib_files_hg19.tar.gz		hg19 nib files to use nibFrag			/fusionscan/src_dir/
+	bowtie2_index_hg19.tar.gz	bowtie2 index files for hg19 & hg19.fa		/fusionscan/src_dir/
+	bowtie2_index_refMrna.tar.gz	bowtie2 index files for refMrna & refMrna.fa	/fusionscan/src_dir/
+	ssaha2_index_hg19.tar.gz	ssaha2 index files for hg19			/fusionscan/src_dir/
+	gene_dir.tar.gz			gene annotation files				/fusionscan/
+	rmsk_dir.tar.gz			repeatMasker files				/fusionscan/
+
+
+REQUIREMENT
+
+	ENVIROMENT TO RUN THE SOFTWARE
+	- JDK1.7 or Jre1.7, Python
+	: FusionScan's main process is developed with JAVA language and whole-process is in Python script.  
+
+
+	REQUIRED INDEX AND SEQUENCE FILES
+	- bowtie2 index files for hg19 & hg19.fa
+	- bowtie2 index files for refMrna & refMrna.fa
+	- ssaha2 index files for hg19
+
+
+	REQUIRED PROGRAMS (go to SETTING)
+	- bowtie2: to obtain unmapped reads
+ 	- SSAHA2: to align reads to genome
+ 	- BLAT (gfServer, gfClient): to confirm final candidates
+ 	- nibFrag: to make pseudo fusion transcript
+ 	- bl2seq (blast): to search sequence homology
+ 	- fastq_quality_trimmer, fastx_collapser, fastx_artifacts_filter (FASTX-Toolkit): to do pre-processes
+
+
+
+HOW TO RUN
+
+INSTALL
+
+     $ tar -xvzf fusionscan.tar.gz
+     $ cd fusionscan/
+
+     *** each directory includes ***
+
+     - fusionscan/ : 
+ 				- Run_FusionScan.py					: to run whole process
+
+
+     - fusionscan/src_dir/	: contains various programs which are used for 
+                                  sequence alignment, sequence comparison, getting sequences from genome.
+				- FusionScan.jar					: FusionScan jar file
+ 	
+* Under files should be downloaded in src_dir/
+
+ 	
+- hg19.2bit
+
+: to use gfServer
+
+ 	
+- nib_files_hg19/*
+
+: to use nibFrag
+
+ 	
+- bowtie2_index_hg19/*
+
+: to use BOWTIE2
+
+ 	
+- bowtie2_index_refMrna/*
+
+: to use BOWTIE2
+
+ 	
+- ssaha2_index_hg19/*
+
+: to use SSAHA2
+
+ 
+
+ 	
+* Under binary src files which are proper to your system should be copied in src_dir/ 
+  in case of linux_ix86_64, all binaries are included in fusionscan/src_dir/
+  (go to SETTING)
+
+ 	
+- nibFrag
+
+: from BLAT
+
+ 	
+- gfClient
+
+: from BLAT
+
+ 	
+- gfServer
+
+: from BLAT
+
+ 	
+- bl2seq
+
+: from BLAST
+
+ 	
+- bowtie2
+
+: from BOWTIE2
+
+ 	
+- bowtie2-align
+
+: from BOWTIE2
+
+ 	
+- bowtie2-align-debug
+
+: from BOWTIE2
+
+ 	
+- fastq_quality_trimmer
+
+: from FASTX-Toolkit
+
+ 	
+- fastx_collapser
+
+: from FASTX-Toolkit
+
+ 	
+- fastx_artifacts_filter
+
+: from FASTX-Toolkit
+
+ 	
+- ssaha2
+
+: from SSAHA2
+
+ 	
+- ssaha2Build
+
+: from SSAHA2
+
+
+     - fusionscan/gene_dir/  : contains various gene annotation files.
+                                           These files can be downloaded from here and extract it in fusionscan/ 
+
+ 	
+- duplicated_gene_database_dgd_Hsa_all_v68.tsv
+
+: duplicated gene database file
+
+ 	
+- pseudogeneHUGO.txt
+
+: HGUO file's pseudogene part info file
+
+ 	
+- refGene_and_indexes.txt
+
+: indexed refGene file
+
+ 	
+- refGene.txt
+
+: raw refGene file
+
+
+     - fusionscan/rmsk_dir/  : contains simple formatted repeatMasker data.
+                                           These files can be downloaded from here and extract it in fusionscan/
+
+
+
+SETTING
+                                                                                                                                                                  go up
+   0. download index files and fasta files for hg19 and refMrna from here and extract it in fusionscan/
+
+*** FusionScan needs bowtie2, SSAHA2, bl2seq and FASTX-Toolkit binary files.
+
+   1. Bowtie2 :  http://sourceforge.net/projects/bowtie-bio/files/bowtie2/2.1.0/
+       Copy bowtie2's executable files (bowtie2, bowtie2-align, bowtie2-align-debug) 
+       proper to your linux system to fusionscan/src_dir/
+       $ cp bowtie2 fusionscan/src_dir/
+       $ cp bowtie2-align fusionscan/src_dir/
+       $ cp bowtie2-align-debug fusionscan/src_dir/
+
+   2. SSAHA2 : http://www.sanger.ac.uk/resources/software/ssaha2/
+       Copy SSAHA2's executalbe files (ssaha2, ssaha2Build) 
+       proper to your linux system to fusionscan/src_dir/
+       $ cp ssaha2 fusionscan/src_dir/
+       $ cp ssaha2Build fusionscan/src_dir/
+
+   3. FASTX-Toolkit : http://hannonlab.cshl.edu/fastx_toolkit/download.html
+       Copy FASTX-Toolkit's executable file (fastq_quality_trimmer, fastx_collapser, fastx_artifacts_filter) 
+       proper to your linux system to fusionscan/src_dir/
+       $ cp fastq_quality_trimmer fusionscan/src_dir/
+       $ cp fastx_collapser fusionscan/src_dir/
+       $ cp fastx_artifacts_filter fusionscan/src_dir/
+   
+   4. blast (bl2seq) : ftp://ftp.ncbi.nlm.nih.gov/blast/executables/release/LATEST/ 
+       Copy blast's executable file (bl2seq) 
+       proper to your linux system to fusionscan/src_dir/
+       $ cp bl2seq fusionscan/src_dir/
+
+   5. blat : http://hgdownload.cse.ucsc.edu/admin/exe/
+       Copy blat's executable file (gfClient, gfServer, nibFrag) 
+       proper to your linux system to fusionscan/src_dir/
+       $ cp gfClient fusionscan/src_dir/
+       $ cp gfServer fusionscan/src_dir/
+       $ cp nibFrag fusionscan/src_dir/
+
+       *** cf1. all index files for two alignment program are included in fusionscan/src_dir/)
+       *** cf2. in case of linux_ix86_64 : all binaries are included in fusionscan/src_dir/
+
+
+
+
+
+ 
+
+COMMANDS
+                                                                                                                                                                   go up
+
+Usage:
+        python Run_FusionScan.py <reads1[,reads2]> <output-dir> <read-length> <gfserver host:port> [options]
+
+        ** <gfserver host:port> is need to use blat (gfclient) at the last step.
+
+Options:
+
+ 	
+--phred33
+
+qualities are Phred+33
+
+ 	
+[ default               ]
+
+ 	
+--phred64
+
+qualities are Phred+64
+
+ 	 
+ 	
+-P/--threads
+
+number of threads
+
+<int>
+
+[ default:  1          ]
+
+ 	
+-ms/--min-seed
+
+minimum number of seed reads
+
+<int>
+
+[ default:  2          ]
+
+ 	
+-md/--min-distance
+
+minimum distance between two genes
+
+<int>
+
+[ default:  100000 ]
+
+ 	
+-kfgs/--known-fusion-gene-search
+
+searching known kinase contained fusion genes
+
+ 	 
+Example:
+
+         python Run_FusionScan.py Test.fa Test 75 00.00.00.00:8100 --phred33 -P 1 -ms 2
+
+
+
+
+
+
+OUTPUTS
+                                                                                                                                                                 go up 
+
+1. FUSION INFORMATION FILE
+fusionscan/project_name/all_candidates_for_project_name_seed2.txt 
+
+column
+
+explanation
+
+example
+
+Hgene
+
+head gene symbol
+
+EML4
+
+Hchr
+
+head gene's chromosome
+
+chr2
+
+Hstrand
+
+head gene's strnad
+
++
+
+Hbp
+
+head gene's break point
+
+42522656
+
+Tgene
+
+tail gene symbol
+
+ALK
+
+Tchr
+
+tail gene's chromosome
+
+chr2
+
+Tstrand
+
+tail gene's strand
+
+-
+
+Tbp
+
+tail gene's break point
+
+29446394
+
+Hg-Tg
+
+head-tail gene pair
+
+EML4-ALK
+
+# of seed read
+
+seed read count
+
+13
+
+BPseq
+
+60bp sequence before & after of exon junction break point
+
+TAGAGCCCACACCTGGGAAAGGACCTAAAG
+tgtaccgccggaagcaccaggagctgcaag
+
+
+2. READ ALIGNMENT FILE FOR EACH FUSION CANDIDATE
+fusionscan/project_name/alignment_dir/EML4_ALK.RNAalign
+
+
+
+
+3. CREATED DIRECTORIES
+
+ 	
+- fusionscan/project_name/
+
+: is created when you run Run_FusionScan.py.
+  under all directories and files are created in project_name directory.
+
+ 	
+- alignment_dir/  (*.RNAalign*)
+
+: contains the alignment files for fusion candidate reads, 
+  these are created when the total analysis is end.
+
+ 	
+- fa_dir/
+
+: contains the splited fasta files.
+
+ 	
+- pslx_dir/
+
+: contains the pslx formated alignment files.
+
+ 	
+- log_dir/
+
+: contains the log files.
+
+ 	
+- all_candidates_for_project_name_seed1.txt
+
+: result report for all candidates.
+
+ 	
+- all_candidates_for_project_name_seed2.txt
+
+: result report for candidates having more than 2 seed reads.
+
+ 	
+- cout_per_each_step_project_name
+
+: statistics for each step.
+
+ 	
+- log_project_name
+
+: logs for each reads during running FusionScan.jar
 
 
